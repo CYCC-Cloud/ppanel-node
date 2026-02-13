@@ -24,7 +24,7 @@ func TestMarshalToJSON(t *testing.T) {
 				ServerId:  1,
 				Protocols: []string{"trojan"},
 			},
-			want: `{"server_id":"1", "protocols":["trojan"]}`,
+			want: `{"server_id":"1","protocols":["trojan"]}`,
 		},
 	}
 
