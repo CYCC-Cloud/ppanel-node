@@ -1,9 +1,12 @@
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
+	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
+	"github.com/perfect-panel/ppanel-node/api/grpcclient"
 	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/task"
 	vCore "github.com/perfect-panel/ppanel-node/core"
@@ -11,8 +14,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type coreServer interface {
+	AddNode(tag string, info *panel.NodeInfo) error
+	DelNode(tag string) error
+	AddUsers(params *vCore.AddUsersParams) (int, error)
+	DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo) error
+	GetUserTrafficSlice(tag string, mintraffic int) ([]panel.UserTraffic, error)
+}
+
+type userListClient interface {
+	GetUserList(ctx context.Context, protocol, knownRevision string) (*nodecontrolv1.GetUserListResponse, error)
+}
+
 type Controller struct {
-	server                  *vCore.XrayCore
+	server                  coreServer
 	apiClient               *panel.ClientV1
 	tag                     string
 	limiter                 *limiter.Limiter
@@ -23,14 +38,17 @@ type Controller struct {
 	userReportPeriodic      *task.Task
 	renewCertPeriodic       *task.Task
 	onlineIpReportPeriodic  *task.Task
+	userClient              userListClient
+	knownRevision           string
 }
 
 // NewController return a Node controller with default parameters.
-func NewController(core *vCore.XrayCore, api *panel.ClientV1, info *panel.NodeInfo) *Controller {
+func NewController(server coreServer, api *panel.ClientV1, userClient userListClient, info *panel.NodeInfo) *Controller {
 	controller := &Controller{
-		server:    core,
-		apiClient: api,
-		info:      info,
+		server:     server,
+		apiClient:  api,
+		userClient: userClient,
+		info:       info,
 	}
 	return controller
 }
@@ -39,7 +57,7 @@ func NewController(core *vCore.XrayCore, api *panel.ClientV1, info *panel.NodeIn
 func (c *Controller) Start() error {
 	var err error
 	// Update user
-	c.userList, err = c.apiClient.GetUserList()
+	c.userList, err = c.fetchUserList()
 	if err != nil {
 		return fmt.Errorf("get user list error: %s", err)
 	}
@@ -104,4 +122,19 @@ func (c *Controller) Close() error {
 
 func (c *Controller) buildNodeTag(node *panel.NodeInfo) string {
 	return fmt.Sprintf("[%s]-%s:%d", c.apiClient.APIHost, node.Type, node.Id)
+}
+
+func (c *Controller) fetchUserList() ([]panel.UserInfo, error) {
+	if c.userClient != nil && c.info != nil && c.info.Protocol != nil {
+		resp, err := c.userClient.GetUserList(context.Background(), c.info.Protocol.Type, c.knownRevision)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, nil
+		}
+		c.knownRevision = resp.GetRevision()
+		return grpcclient.AdaptServerUsers(resp.GetUsers()), nil
+	}
+	return c.apiClient.GetUserList()
 }

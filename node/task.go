@@ -74,10 +74,9 @@ func (c *Controller) reloadTask() {
 	c.startTasks(c.info)
 }
 
-
 func (c *Controller) userListMonitor() (err error) {
 	// get user info
-	newU, err := c.apiClient.GetUserList()
+	newU, err := c.fetchUserList()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"tag": c.tag,
@@ -235,4 +234,3 @@ func compareUserList(old, new []panel.UserInfo) (deleted, added []panel.UserInfo
 
 	return deleted, added
 }
-
