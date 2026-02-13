@@ -81,6 +81,7 @@ func newTestController(t *testing.T, initial []panel.UserInfo, httpList []panel.
 	controller := &Controller{
 		server:     server,
 		apiClient:  client,
+		apiHost:    ts.URL,
 		userClient: userClient,
 		tag:        "test",
 		info: &panel.NodeInfo{

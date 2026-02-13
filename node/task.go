@@ -86,18 +86,19 @@ func (c *Controller) userListMonitor() (err error) {
 		}).Error("Get user list failed")
 		return nil
 	}
-	// get user alive
-	newA, err := c.apiClient.GetUserAlive()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"tag": c.tag,
-			"err": err,
-		}).Error("Get alive list failed")
-		return nil
-	}
-	// update alive list
-	if newA != nil {
-		c.limiter.AliveList = newA
+	// get user alive (HTTP-only; skip when apiClient not configured)
+	if c.apiClient != nil {
+		newA, err := c.apiClient.GetUserAlive()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"tag": c.tag,
+				"err": err,
+			}).Error("Get alive list failed")
+			return nil
+		}
+		if newA != nil {
+			c.limiter.AliveList = newA
+		}
 	}
 	// update user list
 	// newU == nil indicates 304 Not Modified; empty slice means the list is empty

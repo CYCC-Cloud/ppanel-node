@@ -32,7 +32,8 @@ type telemetryReportClient interface {
 
 type Controller struct {
 	server                  coreServer
-	apiClient               *panel.ClientV1
+	apiClient               *panel.ClientV1 // nil when transport=grpc
+	apiHost                 string          // used for node tag when apiClient is nil
 	tag                     string
 	limiter                 *limiter.Limiter
 	userList                []panel.UserInfo
@@ -48,10 +49,16 @@ type Controller struct {
 }
 
 // NewController return a Node controller with default parameters.
-func NewController(server coreServer, api *panel.ClientV1, userClient userListClient, telemetryClient telemetryReportClient, info *panel.NodeInfo) *Controller {
+// api may be nil when gRPC transport is used; apiHost is used for node tag generation.
+func NewController(server coreServer, api *panel.ClientV1, apiHost string, userClient userListClient, telemetryClient telemetryReportClient, info *panel.NodeInfo) *Controller {
+	host := apiHost
+	if host == "" && api != nil {
+		host = api.APIHost
+	}
 	controller := &Controller{
 		server:          server,
 		apiClient:       api,
+		apiHost:         host,
 		userClient:      userClient,
 		telemetryClient: telemetryClient,
 		info:            info,
@@ -70,9 +77,11 @@ func (c *Controller) Start() error {
 	if len(c.userList) == 0 {
 		return errors.New("add users error: not have any user")
 	}
-	c.aliveMap, err = c.apiClient.GetUserAlive()
-	if err != nil {
-		return fmt.Errorf("failed to get user alive list: %s", err)
+	if c.apiClient != nil {
+		c.aliveMap, err = c.apiClient.GetUserAlive()
+		if err != nil {
+			return fmt.Errorf("failed to get user alive list: %s", err)
+		}
 	}
 	c.tag = c.buildNodeTag(c.info)
 
@@ -127,7 +136,7 @@ func (c *Controller) Close() error {
 }
 
 func (c *Controller) buildNodeTag(node *panel.NodeInfo) string {
-	return fmt.Sprintf("[%s]-%s:%d", c.apiClient.APIHost, node.Type, node.Id)
+	return fmt.Sprintf("[%s]-%s:%d", c.apiHost, node.Type, node.Id)
 }
 
 func (c *Controller) fetchUserList() ([]panel.UserInfo, error) {

@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/conf"
@@ -34,6 +35,9 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConf
 			telClient = cli
 		}
 	}
+	apiHost := config.ApiConfig.ApiHost
+	useHTTP := strings.EqualFold(config.ApiConfig.Transport, "http")
+
 	for i, nodeconfig := range *serverconfig.Data.Protocols {
 		n := &panel.NodeInfo{
 			Id:                     config.ApiConfig.ServerId,
@@ -43,16 +47,22 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConf
 			PullInterval:           pullinterval,
 			Protocol:               &nodeconfig,
 		}
-		p, err := panel.NewClientV1(&conf.NodeApiConfig{
-			APIHost:   config.ApiConfig.ApiHost,
-			NodeType:  nodeconfig.Type,
-			NodeID:    config.ApiConfig.ServerId,
-			SecretKey: config.ApiConfig.SecretKey,
-		})
-		if err != nil {
-			return nil, err
+		// Only create HTTP client when transport is explicitly "http".
+		// Default (grpc) path passes nil to avoid HTTP control-plane dependency.
+		var httpClient *panel.ClientV1
+		if useHTTP {
+			var err error
+			httpClient, err = panel.NewClientV1(&conf.NodeApiConfig{
+				APIHost:   config.ApiConfig.ApiHost,
+				NodeType:  nodeconfig.Type,
+				NodeID:    config.ApiConfig.ServerId,
+				SecretKey: config.ApiConfig.SecretKey,
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
-		node.controllers[i] = NewController(core, p, userClient, telClient, n)
+		node.controllers[i] = NewController(core, httpClient, apiHost, userClient, telClient, n)
 	}
 
 	return node, nil
@@ -63,7 +73,7 @@ func (n *Node) Start() error {
 		err := n.controllers[i].Start()
 		if err != nil {
 			return fmt.Errorf("启动节点 [%s-%s-%d] 失败: %s",
-				n.controllers[i].apiClient.APIHost,
+				n.controllers[i].apiHost,
 				n.controllers[i].info.Type,
 				n.controllers[i].info.Id,
 				err)
