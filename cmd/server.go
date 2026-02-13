@@ -2,19 +2,15 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"syscall"
 
-	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
 	"github.com/perfect-panel/ppanel-node/api/grpcclient"
-	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/conf"
 	"github.com/perfect-panel/ppanel-node/core"
 	"github.com/perfect-panel/ppanel-node/domain"
@@ -203,39 +199,7 @@ func reload(config string, nodes **node.Node, xcore **core.XrayCore) error {
 	return nil
 }
 
-type httpServerConfigClient struct {
-	client *panel.ClientV2
-}
-
-func (h *httpServerConfigClient) GetConfig(_ context.Context, _ string, _ []string) (*nodecontrolv1.GetConfigResponse, error) {
-	newServerConfig, err := panel.GetServerConfig(h.client)
-	if err != nil {
-		return nil, err
-	}
-	if newServerConfig == nil {
-		return nil, nil
-	}
-	return &nodecontrolv1.GetConfigResponse{Changed: true}, nil
-}
-
-func (h *httpServerConfigClient) Close() error {
-	return nil
-}
-
 func loadServerConfigClient(apiConfig *conf.ServerApiConfig) (core.ServerConfigClient, *domain.ServerConfigResponse, string, error) {
-	if strings.EqualFold(apiConfig.Transport, "http") {
-		httpClient := panel.NewClientV2(apiConfig)
-		panelConfig, err := panel.GetServerConfig(httpClient)
-		if err != nil {
-			return nil, nil, "", err
-		}
-		domainConfig, err := panelServerConfigToDomain(panelConfig)
-		if err != nil {
-			return nil, nil, "", err
-		}
-		return &httpServerConfigClient{client: httpClient}, domainConfig, "", nil
-	}
-
 	grpcClient, err := grpcclient.New(apiConfig)
 	if err != nil {
 		return nil, nil, "", err
@@ -258,19 +222,4 @@ func loadServerConfigClient(apiConfig *conf.ServerApiConfig) (core.ServerConfigC
 	}
 
 	return grpcClient, serverconfig, resp.GetRevision(), nil
-}
-
-func panelServerConfigToDomain(resp *panel.ServerConfigResponse) (*domain.ServerConfigResponse, error) {
-	if resp == nil {
-		return nil, nil
-	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return nil, err
-	}
-	var result domain.ServerConfigResponse
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
 }
