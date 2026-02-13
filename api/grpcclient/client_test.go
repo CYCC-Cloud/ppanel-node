@@ -37,16 +37,12 @@ func TestAuthMetadataInjected(t *testing.T) {
 
 	c, err := grpcclient.New(&conf.ServerApiConfig{
 		ServerId:        42,
-		Transport:       "grpc",
 		GRPCAddr:        srvAddr,
 		GRPCSecret:      "node-secret",
 		GRPCDialTimeout: 3,
 		GRPCRPCTimeout:  3,
 		GRPCTLS:         false,
 		GRPCServerName:  "",
-		SecretKey:       "",
-		ApiHost:         "",
-		Timeout:         0,
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -69,7 +65,6 @@ func TestGetConfig_ChangedFalseReturnsNilData(t *testing.T) {
 
 	c, err := grpcclient.New(&conf.ServerApiConfig{
 		ServerId:        7,
-		Transport:       "grpc",
 		GRPCAddr:        srvAddr,
 		GRPCSecret:      "node-secret",
 		GRPCDialTimeout: 3,

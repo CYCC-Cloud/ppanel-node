@@ -20,12 +20,7 @@ type LogConfig struct {
 }
 
 type ServerApiConfig struct {
-	ApiHost   string `mapstructure:"ApiHost"`
-	ServerId  int    `mapstructure:"ServerID"`
-	SecretKey string `mapstructure:"SecretKey"`
-	Timeout   int    `mapstructure:"Timeout"`
-
-	Transport              string `mapstructure:"Transport"`
+	ServerId               int    `mapstructure:"ServerID"`
 	GRPCAddr               string `mapstructure:"GRPCAddr"`
 	GRPCSecret             string `mapstructure:"GRPCSecret"`
 	GRPCTLS                bool   `mapstructure:"GRPCTLS"`

@@ -1,8 +1,4 @@
 Api:
-  ApiHost: "https://panel.local"
   ServerID: 1
-  SecretKey: "legacy-secret"
-  Timeout: 10
-  Transport: "grpc"
   GRPCAddr: "127.0.0.1:50051"
   GRPCSecret: "node-secret"

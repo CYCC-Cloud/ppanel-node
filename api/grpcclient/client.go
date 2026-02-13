@@ -55,9 +55,6 @@ func New(cfg *conf.ServerApiConfig) (*Client, error) {
 	dialTimeout := secondsToDuration(cfg.GRPCDialTimeout, defaultDialTimeout)
 	rpcTimeout := secondsToDuration(cfg.GRPCRPCTimeout, defaultRPCTimeout)
 	secret := cfg.GRPCSecret
-	if secret == "" {
-		secret = cfg.SecretKey
-	}
 
 	transportCreds := insecure.NewCredentials()
 	if cfg.GRPCTLS {
