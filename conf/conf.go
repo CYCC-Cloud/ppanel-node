@@ -24,6 +24,15 @@ type ServerApiConfig struct {
 	ServerId  int    `mapstructure:"ServerID"`
 	SecretKey string `mapstructure:"SecretKey"`
 	Timeout   int    `mapstructure:"Timeout"`
+
+	Transport              string `mapstructure:"Transport"`
+	GRPCAddr               string `mapstructure:"GRPCAddr"`
+	GRPCSecret             string `mapstructure:"GRPCSecret"`
+	GRPCTLS                bool   `mapstructure:"GRPCTLS"`
+	GRPCServerName         string `mapstructure:"GRPCServerName"`
+	GRPCInsecureSkipVerify bool   `mapstructure:"GRPCInsecureSkipVerify"`
+	GRPCDialTimeout        int    `mapstructure:"GRPCDialTimeout"`
+	GRPCRPCTimeout         int    `mapstructure:"GRPCRPCTimeout"`
 }
 
 type NodeApiConfig struct {
