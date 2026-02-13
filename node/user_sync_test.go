@@ -2,43 +2,31 @@ package node
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
-	"github.com/perfect-panel/ppanel-node/api/panel"
-	"github.com/perfect-panel/ppanel-node/conf"
 	vCore "github.com/perfect-panel/ppanel-node/core"
+	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/perfect-panel/ppanel-node/limiter"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeCoreServer struct {
 	added   []*vCore.AddUsersParams
-	deleted [][]panel.UserInfo
+	deleted [][]domain.UserInfo
 }
 
-func (f *fakeCoreServer) AddNode(tag string, info *panel.NodeInfo) error {
-	return nil
-}
-
-func (f *fakeCoreServer) DelNode(tag string) error {
-	return nil
-}
-
+func (f *fakeCoreServer) AddNode(tag string, info *domain.NodeInfo) error { return nil }
+func (f *fakeCoreServer) DelNode(tag string) error                        { return nil }
 func (f *fakeCoreServer) AddUsers(params *vCore.AddUsersParams) (int, error) {
 	f.added = append(f.added, params)
 	return len(params.Users), nil
 }
-
-func (f *fakeCoreServer) DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo) error {
+func (f *fakeCoreServer) DelUsers(users []domain.UserInfo, tag string, info *domain.NodeInfo) error {
 	f.deleted = append(f.deleted, users)
 	return nil
 }
-
-func (f *fakeCoreServer) GetUserTrafficSlice(tag string, mintraffic int) ([]panel.UserTraffic, error) {
+func (f *fakeCoreServer) GetUserTrafficSlice(tag string, mintraffic int) ([]domain.UserTraffic, error) {
 	return nil, nil
 }
 
@@ -53,54 +41,29 @@ func (f *fakeUserListClient) GetUserList(ctx context.Context, protocol, knownRev
 	return f.response, f.err
 }
 
-func startUserListServer(t *testing.T, list []panel.UserInfo) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/server/user", r.URL.Path)
-		w.Header().Set("ETag", "etag1")
-		require.NoError(t, json.NewEncoder(w).Encode(struct {
-			Users []panel.UserInfo `json:"users"`
-		}{
-			Users: list,
-		}))
-	}))
-}
-
-func newTestController(t *testing.T, initial []panel.UserInfo, httpList []panel.UserInfo, userClient userListClient) (*Controller, *fakeCoreServer) {
+func newTestController(t *testing.T, initial []domain.UserInfo, userClient userListClient) (*Controller, *fakeCoreServer) {
 	t.Helper()
 	limiter.Init()
 	server := &fakeCoreServer{}
-	ts := startUserListServer(t, httpList)
-	client, err := panel.NewClientV1(&conf.NodeApiConfig{
-		APIHost:   ts.URL,
-		NodeType:  "vmess",
-		NodeID:    1,
-		SecretKey: "secret",
-	})
-	require.NoError(t, err)
 	controller := &Controller{
 		server:     server,
-		apiClient:  client,
-		apiHost:    ts.URL,
+		apiHost:    "test-host",
 		userClient: userClient,
 		tag:        "test",
-		info: &panel.NodeInfo{
+		info: &domain.NodeInfo{
 			Id: 1,
-			Protocol: &panel.Protocol{
+			Protocol: &domain.Protocol{
 				Type: "vmess",
 			},
 		},
 		userList: initial,
 	}
-	controller.limiter = limiter.AddLimiter(controller.tag, initial, map[int]int{})
-	t.Cleanup(func() {
-		ts.Close()
-	})
+	controller.limiter = limiter.AddLimiter(controller.tag, initial, nil)
 	return controller, server
 }
 
 func TestUserListMonitor_ChangedUpdatesUsers(t *testing.T) {
-	initial := []panel.UserInfo{{Id: 1, Uuid: "old", SpeedLimit: 0, DeviceLimit: 0}}
+	initial := []domain.UserInfo{{Id: 1, Uuid: "old", SpeedLimit: 0, DeviceLimit: 0}}
 	userClient := &fakeUserListClient{
 		response: &nodecontrolv1.GetUserListResponse{
 			Changed:  true,
@@ -110,7 +73,7 @@ func TestUserListMonitor_ChangedUpdatesUsers(t *testing.T) {
 			},
 		},
 	}
-	controller, server := newTestController(t, initial, initial, userClient)
+	controller, server := newTestController(t, initial, userClient)
 
 	err := controller.userListMonitor()
 	require.NoError(t, err)
@@ -130,11 +93,9 @@ func TestUserListMonitor_ChangedUpdatesUsers(t *testing.T) {
 }
 
 func TestUserListMonitor_UnchangedNoop(t *testing.T) {
-	initial := []panel.UserInfo{{Id: 1, Uuid: "old"}}
-	userClient := &fakeUserListClient{
-		response: nil,
-	}
-	controller, server := newTestController(t, initial, initial, userClient)
+	initial := []domain.UserInfo{{Id: 1, Uuid: "old"}}
+	userClient := &fakeUserListClient{response: nil}
+	controller, server := newTestController(t, initial, userClient)
 
 	err := controller.userListMonitor()
 	require.NoError(t, err)

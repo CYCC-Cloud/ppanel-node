@@ -6,14 +6,14 @@ import (
 	"time"
 
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
-	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/serverstatus"
 	"github.com/perfect-panel/ppanel-node/common/task"
 	vCore "github.com/perfect-panel/ppanel-node/core"
+	"github.com/perfect-panel/ppanel-node/domain"
 	log "github.com/sirupsen/logrus"
 )
 
-func (c *Controller) startTasks(node *panel.NodeInfo) {
+func (c *Controller) startTasks(node *domain.NodeInfo) {
 	// fetch user list task
 	c.userListMonitorPeriodic = &task.Task{
 		Name:     "userListMonitor",
@@ -85,20 +85,6 @@ func (c *Controller) userListMonitor() (err error) {
 			"err": err,
 		}).Error("Get user list failed")
 		return nil
-	}
-	// get user alive (HTTP-only; skip when apiClient not configured)
-	if c.apiClient != nil {
-		newA, err := c.apiClient.GetUserAlive()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Error("Get alive list failed")
-			return nil
-		}
-		if newA != nil {
-			c.limiter.AliveList = newA
-		}
 	}
 	// update user list
 	// newU == nil indicates 304 Not Modified; empty slice means the list is empty
@@ -229,39 +215,11 @@ func (c *Controller) reportUserTrafficTask() error {
 				len(protoTraffic), len(protoOnline),
 			)
 		}
-		return nil
 	}
-
-	// Fallback to HTTP if no gRPC telemetry client configured
-	if len(userTraffic) > 0 {
-		if err := c.apiClient.ReportUserTraffic(&userTraffic); err != nil {
-			log.WithFields(log.Fields{"tag": c.tag, "err": err}).Info("Report user traffic failed")
-		} else {
-			log.WithField("节点", c.tag).Infof("已上报 %d 名用户消耗流量", len(userTraffic))
-		}
-	}
-	if len(protoOnline) > 0 {
-		var panelOnline []panel.OnlineUser
-		for _, ou := range protoOnline {
-			panelOnline = append(panelOnline, panel.OnlineUser{UID: int(ou.Uid), IP: ou.Ip})
-		}
-		if err := c.apiClient.ReportNodeOnlineUsers(&panelOnline); err != nil {
-			log.WithFields(log.Fields{"tag": c.tag, "err": err}).Info("Report online users failed")
-		}
-	}
-	if err := c.apiClient.ReportNodeStatus(&panel.NodeStatus{
-		CPU:    CPU,
-		Mem:    Mem,
-		Disk:   Disk,
-		Uptime: Uptime,
-	}); err != nil {
-		log.Print(err)
-	}
-
 	return nil
 }
 
-func compareUserList(old, new []panel.UserInfo) (deleted, added []panel.UserInfo) {
+func compareUserList(old, new []domain.UserInfo) (deleted, added []domain.UserInfo) {
 	oldMap := make(map[string]int)
 	for i, user := range old {
 		key := user.Uuid + strconv.Itoa(user.SpeedLimit)

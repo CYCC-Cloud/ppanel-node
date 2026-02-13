@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/ratelimit"
-	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/format"
+	"github.com/perfect-panel/ppanel-node/domain"
 )
 
 var limitLock sync.RWMutex
@@ -37,7 +37,7 @@ type UserLimitInfo struct {
 	OverLimit         bool
 }
 
-func AddLimiter(tag string, users []panel.UserInfo, aliveList map[int]int) *Limiter {
+func AddLimiter(tag string, users []domain.UserInfo, aliveList map[int]int) *Limiter {
 	info := &Limiter{
 		UserOnlineIP:  new(sync.Map),
 		UserLimitInfo: new(sync.Map),
@@ -82,7 +82,7 @@ func DeleteLimiter(tag string) {
 	limitLock.Unlock()
 }
 
-func (l *Limiter) UpdateUser(tag string, added []panel.UserInfo, deleted []panel.UserInfo) {
+func (l *Limiter) UpdateUser(tag string, added []domain.UserInfo, deleted []domain.UserInfo) {
 	for i := range deleted {
 		l.UserLimitInfo.Delete(format.UserTag(tag, deleted[i].Uuid))
 		l.UserOnlineIP.Delete(format.UserTag(tag, deleted[i].Uuid))
@@ -179,8 +179,8 @@ func (l *Limiter) CheckLimit(taguuid string, ip string, isTcp bool, noSSUDP bool
 	}
 }
 
-func (l *Limiter) GetOnlineDevice() (*[]panel.OnlineUser, error) {
-	var onlineUser []panel.OnlineUser
+func (l *Limiter) GetOnlineDevice() (*[]domain.OnlineUser, error) {
+	var onlineUser []domain.OnlineUser
 	l.UserOnlineIP.Range(func(key, value interface{}) bool {
 		taguuid := key.(string)
 		ipMap := value.(*sync.Map)
@@ -188,7 +188,7 @@ func (l *Limiter) GetOnlineDevice() (*[]panel.OnlineUser, error) {
 			uid := value.(int)
 			ip := key.(string)
 			l.OldUserOnline.Store(ip, uid)
-			onlineUser = append(onlineUser, panel.OnlineUser{UID: uid, IP: ip})
+			onlineUser = append(onlineUser, domain.OnlineUser{UID: uid, IP: ip})
 			return true
 		})
 		l.UserOnlineIP.Delete(taguuid) // Reset online device

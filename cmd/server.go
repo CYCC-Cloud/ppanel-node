@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -16,6 +17,7 @@ import (
 	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/conf"
 	"github.com/perfect-panel/ppanel-node/core"
+	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/perfect-panel/ppanel-node/limiter"
 	"github.com/perfect-panel/ppanel-node/node"
 	log "github.com/sirupsen/logrus"
@@ -220,14 +222,18 @@ func (h *httpServerConfigClient) Close() error {
 	return nil
 }
 
-func loadServerConfigClient(apiConfig *conf.ServerApiConfig) (core.ServerConfigClient, *panel.ServerConfigResponse, string, error) {
+func loadServerConfigClient(apiConfig *conf.ServerApiConfig) (core.ServerConfigClient, *domain.ServerConfigResponse, string, error) {
 	if strings.EqualFold(apiConfig.Transport, "http") {
 		httpClient := panel.NewClientV2(apiConfig)
-		serverconfig, err := panel.GetServerConfig(httpClient)
+		panelConfig, err := panel.GetServerConfig(httpClient)
 		if err != nil {
 			return nil, nil, "", err
 		}
-		return &httpServerConfigClient{client: httpClient}, serverconfig, "", nil
+		domainConfig, err := panelServerConfigToDomain(panelConfig)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		return &httpServerConfigClient{client: httpClient}, domainConfig, "", nil
 	}
 
 	grpcClient, err := grpcclient.New(apiConfig)
@@ -252,4 +258,19 @@ func loadServerConfigClient(apiConfig *conf.ServerApiConfig) (core.ServerConfigC
 	}
 
 	return grpcClient, serverconfig, resp.GetRevision(), nil
+}
+
+func panelServerConfigToDomain(resp *panel.ServerConfigResponse) (*domain.ServerConfigResponse, error) {
+	if resp == nil {
+		return nil, nil
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+	var result domain.ServerConfigResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }

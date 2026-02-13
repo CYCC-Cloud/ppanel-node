@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/counter"
 	"github.com/perfect-panel/ppanel-node/common/format"
 	"github.com/perfect-panel/ppanel-node/core/app/dispatcher"
+	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/infra/conf"
@@ -42,7 +42,7 @@ func (v *XrayCore) GetUserManager(tag string) (proxy.UserManager, error) {
 	return userManager, nil
 }
 
-func (vc *XrayCore) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeInfo) error {
+func (vc *XrayCore) DelUsers(users []domain.UserInfo, tag string, _ *domain.NodeInfo) error {
 	userManager, err := vc.GetUserManager(tag)
 	if err != nil {
 		return fmt.Errorf("get user manager error: %s", err)
@@ -72,8 +72,8 @@ func (vc *XrayCore) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 	return nil
 }
 
-func (vc *XrayCore) GetUserTrafficSlice(tag string, mintraffic int) ([]panel.UserTraffic, error) {
-	trafficSlice := make([]panel.UserTraffic, 0)
+func (vc *XrayCore) GetUserTrafficSlice(tag string, mintraffic int) ([]domain.UserTraffic, error) {
+	trafficSlice := make([]domain.UserTraffic, 0)
 	vc.users.mapLock.RLock()
 	defer vc.users.mapLock.RUnlock()
 	if v, ok := vc.dispatcher.Counter.Load(tag); ok {
@@ -90,7 +90,7 @@ func (vc *XrayCore) GetUserTrafficSlice(tag string, mintraffic int) ([]panel.Use
 					c.Delete(email)
 					return true
 				}
-				trafficSlice = append(trafficSlice, panel.UserTraffic{
+				trafficSlice = append(trafficSlice, domain.UserTraffic{
 					UID:      vc.users.uidMap[email],
 					Upload:   up,
 					Download: down,
@@ -153,7 +153,7 @@ func (v *XrayCore) AddUsers(p *AddUsersParams) (added int, err error) {
 	return len(users), nil
 }
 
-func buildVmessUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.User) {
+func buildVmessUsers(tag string, userInfo []domain.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i, user := range userInfo {
 		users[i] = buildVmessUser(tag, &user)
@@ -161,7 +161,7 @@ func buildVmessUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.U
 	return users
 }
 
-func buildVmessUser(tag string, userInfo *panel.UserInfo) (user *protocol.User) {
+func buildVmessUser(tag string, userInfo *domain.UserInfo) (user *protocol.User) {
 	vmessAccount := &conf.VMessAccount{
 		ID:       userInfo.Uuid,
 		Security: "auto",
@@ -173,7 +173,7 @@ func buildVmessUser(tag string, userInfo *panel.UserInfo) (user *protocol.User) 
 	}
 }
 
-func buildVlessUsers(tag string, userInfo []panel.UserInfo, flow string) (users []*protocol.User) {
+func buildVlessUsers(tag string, userInfo []domain.UserInfo, flow string) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i := range userInfo {
 		users[i] = buildVlessUser(tag, &(userInfo)[i], flow)
@@ -181,7 +181,7 @@ func buildVlessUsers(tag string, userInfo []panel.UserInfo, flow string) (users 
 	return users
 }
 
-func buildVlessUser(tag string, userInfo *panel.UserInfo, flow string) (user *protocol.User) {
+func buildVlessUser(tag string, userInfo *domain.UserInfo, flow string) (user *protocol.User) {
 	vlessAccount := &vless.Account{
 		Id: userInfo.Uuid,
 	}
@@ -193,7 +193,7 @@ func buildVlessUser(tag string, userInfo *panel.UserInfo, flow string) (user *pr
 	}
 }
 
-func buildTrojanUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.User) {
+func buildTrojanUsers(tag string, userInfo []domain.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i := range userInfo {
 		users[i] = buildTrojanUser(tag, &(userInfo)[i])
@@ -201,7 +201,7 @@ func buildTrojanUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.
 	return users
 }
 
-func buildTrojanUser(tag string, userInfo *panel.UserInfo) (user *protocol.User) {
+func buildTrojanUser(tag string, userInfo *domain.UserInfo) (user *protocol.User) {
 	trojanAccount := &trojan.Account{
 		Password: userInfo.Uuid,
 	}
@@ -212,7 +212,7 @@ func buildTrojanUser(tag string, userInfo *panel.UserInfo) (user *protocol.User)
 	}
 }
 
-func buildSSUsers(tag string, userInfo []panel.UserInfo, cypher string, serverKey string) (users []*protocol.User) {
+func buildSSUsers(tag string, userInfo []domain.UserInfo, cypher string, serverKey string) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i := range userInfo {
 		users[i] = buildSSUser(tag, &userInfo[i], cypher, serverKey)
@@ -220,7 +220,7 @@ func buildSSUsers(tag string, userInfo []panel.UserInfo, cypher string, serverKe
 	return users
 }
 
-func buildSSUser(tag string, userInfo *panel.UserInfo, cypher string, serverKey string) (user *protocol.User) {
+func buildSSUser(tag string, userInfo *domain.UserInfo, cypher string, serverKey string) (user *protocol.User) {
 	if !strings.Contains(cypher, "2022") {
 		ssAccount := &shadowsocks.Account{
 			Password:   userInfo.Uuid,
@@ -267,7 +267,7 @@ func getCipherFromString(c string) shadowsocks.CipherType {
 	}
 }
 
-func buildHysteria2Users(tag string, userInfo []panel.UserInfo) (users []*protocol.User) {
+func buildHysteria2Users(tag string, userInfo []domain.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i := range userInfo {
 		users[i] = buildHysteria2User(tag, &userInfo[i])
@@ -275,7 +275,7 @@ func buildHysteria2Users(tag string, userInfo []panel.UserInfo) (users []*protoc
 	return users
 }
 
-func buildHysteria2User(tag string, userInfo *panel.UserInfo) (user *protocol.User) {
+func buildHysteria2User(tag string, userInfo *domain.UserInfo) (user *protocol.User) {
 	hysteria2Account := &hysteria2.Account{
 		Password: userInfo.Uuid,
 	}
@@ -286,7 +286,7 @@ func buildHysteria2User(tag string, userInfo *panel.UserInfo) (user *protocol.Us
 	}
 }
 
-func buildTuicUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.User) {
+func buildTuicUsers(tag string, userInfo []domain.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i := range userInfo {
 		users[i] = buildTuicUser(tag, &userInfo[i])
@@ -294,7 +294,7 @@ func buildTuicUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.Us
 	return users
 }
 
-func buildTuicUser(tag string, userInfo *panel.UserInfo) (user *protocol.User) {
+func buildTuicUser(tag string, userInfo *domain.UserInfo) (user *protocol.User) {
 	tuicAccount := &tuic.Account{
 		Uuid:     userInfo.Uuid,
 		Password: userInfo.Uuid,
@@ -306,7 +306,7 @@ func buildTuicUser(tag string, userInfo *panel.UserInfo) (user *protocol.User) {
 	}
 }
 
-func buildAnyTLSUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.User) {
+func buildAnyTLSUsers(tag string, userInfo []domain.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(userInfo))
 	for i := range userInfo {
 		users[i] = buildAnyTLSUser(tag, &userInfo[i])
@@ -314,7 +314,7 @@ func buildAnyTLSUsers(tag string, userInfo []panel.UserInfo) (users []*protocol.
 	return users
 }
 
-func buildAnyTLSUser(tag string, userInfo *panel.UserInfo) (user *protocol.User) {
+func buildAnyTLSUser(tag string, userInfo *domain.UserInfo) (user *protocol.User) {
 	anyTLSAccount := &anytls.Account{
 		Password: userInfo.Uuid,
 	}

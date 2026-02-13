@@ -3,10 +3,10 @@ package core
 import (
 	"fmt"
 
-	"github.com/perfect-panel/ppanel-node/api/panel"
+	"github.com/perfect-panel/ppanel-node/domain"
 )
 
-func (v *XrayCore) AddNode(tag string, info *panel.NodeInfo) error {
+func (v *XrayCore) AddNode(tag string, info *domain.NodeInfo) error {
 	inBoundConfig, err := buildInbound(info, tag)
 	if err != nil {
 		return fmt.Errorf("build inbound error: %s", err)

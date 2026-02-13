@@ -2,18 +2,17 @@ package node
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/conf"
 	vCore "github.com/perfect-panel/ppanel-node/core"
+	"github.com/perfect-panel/ppanel-node/domain"
 )
 
 type Node struct {
 	controllers []*Controller
 }
 
-func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConfigResponse) (*Node, error) {
+func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *domain.ServerConfigResponse) (*Node, error) {
 	node := &Node{
 		controllers: make([]*Controller, len(*serverconfig.Data.Protocols)),
 	}
@@ -35,11 +34,10 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConf
 			telClient = cli
 		}
 	}
-	apiHost := config.ApiConfig.ApiHost
-	useHTTP := strings.EqualFold(config.ApiConfig.Transport, "http")
+	apiHost := config.ApiConfig.GRPCAddr
 
 	for i, nodeconfig := range *serverconfig.Data.Protocols {
-		n := &panel.NodeInfo{
+		n := &domain.NodeInfo{
 			Id:                     config.ApiConfig.ServerId,
 			Type:                   nodeconfig.Type,
 			TrafficReportThreshold: serverconfig.Data.TrafficReportThreshold,
@@ -47,22 +45,7 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConf
 			PullInterval:           pullinterval,
 			Protocol:               &nodeconfig,
 		}
-		// Only create HTTP client when transport is explicitly "http".
-		// Default (grpc) path passes nil to avoid HTTP control-plane dependency.
-		var httpClient *panel.ClientV1
-		if useHTTP {
-			var err error
-			httpClient, err = panel.NewClientV1(&conf.NodeApiConfig{
-				APIHost:   config.ApiConfig.ApiHost,
-				NodeType:  nodeconfig.Type,
-				NodeID:    config.ApiConfig.ServerId,
-				SecretKey: config.ApiConfig.SecretKey,
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
-		node.controllers[i] = NewController(core, httpClient, apiHost, userClient, telClient, n)
+		node.controllers[i] = NewController(core, apiHost, userClient, telClient, n)
 	}
 
 	return node, nil

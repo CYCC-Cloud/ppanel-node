@@ -6,11 +6,11 @@ import (
 	"time"
 
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
-	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/task"
 	"github.com/perfect-panel/ppanel-node/conf"
 	"github.com/perfect-panel/ppanel-node/core/app/dispatcher"
 	_ "github.com/perfect-panel/ppanel-node/core/distro/all"
+	"github.com/perfect-panel/ppanel-node/domain"
 	log "github.com/sirupsen/logrus"
 	"github.com/xtls/xray-core/app/proxyman"
 	"github.com/xtls/xray-core/app/stats"
@@ -25,8 +25,8 @@ import (
 
 type AddUsersParams struct {
 	Tag   string
-	Users []panel.UserInfo
-	*panel.NodeInfo
+	Users []domain.UserInfo
+	*domain.NodeInfo
 }
 
 type XrayCore struct {
@@ -69,7 +69,7 @@ func (v *XrayCore) SetKnownConfigRevision(revision string) {
 	v.knownConfigRevision = revision
 }
 
-func (v *XrayCore) Start(serverconfig *panel.ServerConfigResponse) error {
+func (v *XrayCore) Start(serverconfig *domain.ServerConfigResponse) error {
 	v.access.Lock()
 	defer v.access.Unlock()
 	v.Server = getCore(v.Config, serverconfig)
@@ -104,7 +104,7 @@ func (v *XrayCore) Close() error {
 	return nil
 }
 
-func getCore(c *conf.Conf, serverconfig *panel.ServerConfigResponse) *core.Instance {
+func getCore(c *conf.Conf, serverconfig *domain.ServerConfigResponse) *core.Instance {
 	// Log Config
 	coreLogConfig := &coreConf.LogConfig{
 		LogLevel:  c.LogConfig.Level,
@@ -154,7 +154,7 @@ func getCore(c *conf.Conf, serverconfig *panel.ServerConfigResponse) *core.Insta
 	return server
 }
 
-func (c *XrayCore) startTasks(serverconfig *panel.ServerConfigResponse) {
+func (c *XrayCore) startTasks(serverconfig *domain.ServerConfigResponse) {
 	c.monitorProtocolTypes = c.monitorProtocolTypes[:0]
 	if serverconfig != nil && serverconfig.Data != nil && serverconfig.Data.Protocols != nil {
 		for _, protocol := range *serverconfig.Data.Protocols {

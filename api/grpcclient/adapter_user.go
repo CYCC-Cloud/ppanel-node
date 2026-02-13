@@ -2,20 +2,20 @@ package grpcclient
 
 import (
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
-	"github.com/perfect-panel/ppanel-node/api/panel"
+	"github.com/perfect-panel/ppanel-node/domain"
 )
 
-// AdaptServerUsers converts gRPC server user metadata into panel.UserInfo.
-func AdaptServerUsers(users []*nodecontrolv1.ServerUser) []panel.UserInfo {
+// AdaptServerUsers converts gRPC server user metadata into domain.UserInfo.
+func AdaptServerUsers(users []*nodecontrolv1.ServerUser) []domain.UserInfo {
 	if len(users) == 0 {
-		return []panel.UserInfo{}
+		return []domain.UserInfo{}
 	}
-	result := make([]panel.UserInfo, 0, len(users))
+	result := make([]domain.UserInfo, 0, len(users))
 	for _, u := range users {
 		if u == nil {
 			continue
 		}
-		result = append(result, panel.UserInfo{
+		result = append(result, domain.UserInfo{
 			Id:          int(u.GetId()),
 			Uuid:        u.GetUuid(),
 			SpeedLimit:  int(u.GetSpeedLimit()),

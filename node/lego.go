@@ -23,16 +23,16 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/perfect-panel/ppanel-node/api/panel"
+	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/perfect-panel/ppanel-node/common/file"
 )
 
 type Lego struct {
 	client *lego.Client
-	info   *panel.NodeInfo
+	info   *domain.NodeInfo
 }
 
-func NewLego(info *panel.NodeInfo) (*Lego, error) {
+func NewLego(info *domain.NodeInfo) (*Lego, error) {
 	certFile := filepath.Join("/etc/PPanel-node/", info.Type+strconv.Itoa(info.Id)+".cer")
 	//keyFile := filepath.Join("/etc/PPanel-node/", info.Type+strconv.Itoa(info.Id)+".key")
 	user, err := NewLegoUser(path.Join(path.Dir(certFile),

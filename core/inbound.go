@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perfect-panel/ppanel-node/api/panel"
+	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/inbound"
@@ -44,7 +44,7 @@ func (v *XrayCore) addInbound(config *core.InboundHandlerConfig) error {
 }
 
 // BuildInbound build Inbound config for different protocol
-func buildInbound(nodeInfo *panel.NodeInfo, tag string) (*core.InboundHandlerConfig, error) {
+func buildInbound(nodeInfo *domain.NodeInfo, tag string) (*core.InboundHandlerConfig, error) {
 	in := &coreConf.InboundDetourConfig{}
 	var err error
 	switch nodeInfo.Type {
@@ -140,7 +140,7 @@ func buildInbound(nodeInfo *panel.NodeInfo, tag string) (*core.InboundHandlerCon
 	return in.Build()
 }
 
-func buildVLess(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildVLess(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "vless"
 	var err error
 	decryption := "none"
@@ -203,7 +203,7 @@ func buildVLess(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig)
 	return nil
 }
 
-func buildVMess(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildVMess(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "vmess"
 	var err error
 	s, err := json.Marshal(&coreConf.VMessInboundConfig{})
@@ -246,7 +246,7 @@ func buildVMess(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig)
 	return nil
 }
 
-func buildTrojan(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildTrojan(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "trojan"
 	s, err := json.Marshal(&coreConf.TrojanServerConfig{})
 	if err != nil {
@@ -274,7 +274,7 @@ func buildTrojan(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig
 	return nil
 }
 
-func buildShadowsocks(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildShadowsocks(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "shadowsocks"
 	cipher := nodeInfo.Protocol.Cipher
 	settings := &coreConf.ShadowsocksServerConfig{
@@ -341,7 +341,7 @@ func buildShadowsocks(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourC
 	return nil
 }
 
-func buildHysteria2(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildHysteria2(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "hysteria2"
 	up := nodeInfo.Protocol.UpMbps
 	down := nodeInfo.Protocol.DownMbps
@@ -378,7 +378,7 @@ func buildHysteria2(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourCon
 	return nil
 }
 
-func buildTuic(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildTuic(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "tuic"
 	settings := &coreConf.TuicServerConfig{
 		CongestionControl: nodeInfo.Protocol.CongestionController,
@@ -394,7 +394,7 @@ func buildTuic(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) 
 	return nil
 }
 
-func buildAnyTLS(nodeInfo *panel.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
+func buildAnyTLS(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {
 	inbound.Protocol = "anytls"
 	var padding []string
 	//nodeInfo.Protocol.PaddingScheme "stop=8\n0=30-30\n1=100-400\n2=400-500,c,500-1000,c,500-1000,c,500-1000,c,500-1000\n3=9-9,500-1000\n4=500-1000\n5=500-1000\n6=500-1000\n7=500-1000"

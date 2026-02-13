@@ -2,19 +2,19 @@ package grpcclient
 
 import (
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
-	"github.com/perfect-panel/ppanel-node/api/panel"
+	"github.com/perfect-panel/ppanel-node/domain"
 )
 
-func AdaptServerConfigResponse(resp *nodecontrolv1.GetConfigResponse) *panel.ServerConfigResponse {
+func AdaptServerConfigResponse(resp *nodecontrolv1.GetConfigResponse) *domain.ServerConfigResponse {
 	if resp == nil || resp.GetData() == nil {
 		return nil
 	}
 
 	data := resp.GetData()
-	result := &panel.ServerConfigResponse{
+	result := &domain.ServerConfigResponse{
 		Code: 0,
 		Msg:  "ok",
-		Data: &panel.Data{
+		Data: &domain.Data{
 			TrafficReportThreshold: int(data.GetTrafficReportThreshold()),
 			PushInterval:           int(data.GetPushIntervalSec()),
 			PullInterval:           int(data.GetPullIntervalSec()),
@@ -24,9 +24,9 @@ func AdaptServerConfigResponse(resp *nodecontrolv1.GetConfigResponse) *panel.Ser
 	}
 
 	if len(data.GetDns()) > 0 {
-		dns := make([]panel.DNSItem, 0, len(data.GetDns()))
+		dns := make([]domain.DNSItem, 0, len(data.GetDns()))
 		for _, item := range data.GetDns() {
-			dns = append(dns, panel.DNSItem{
+			dns = append(dns, domain.DNSItem{
 				Proto:   item.GetProto(),
 				Address: item.GetAddress(),
 				Domains: item.GetDomains(),
@@ -41,9 +41,9 @@ func AdaptServerConfigResponse(resp *nodecontrolv1.GetConfigResponse) *panel.Ser
 	}
 
 	if len(data.GetOutbound()) > 0 {
-		outbound := make([]panel.Outbound, 0, len(data.GetOutbound()))
+		outbound := make([]domain.Outbound, 0, len(data.GetOutbound()))
 		for _, item := range data.GetOutbound() {
-			outbound = append(outbound, panel.Outbound{
+			outbound = append(outbound, domain.Outbound{
 				Name:     item.GetName(),
 				Protocol: item.GetProtocol(),
 				Address:  item.GetAddress(),
@@ -56,9 +56,9 @@ func AdaptServerConfigResponse(resp *nodecontrolv1.GetConfigResponse) *panel.Ser
 	}
 
 	if len(data.GetProtocols()) > 0 {
-		protocols := make([]panel.Protocol, 0, len(data.GetProtocols()))
+		protocols := make([]domain.Protocol, 0, len(data.GetProtocols()))
 		for _, item := range data.GetProtocols() {
-			protocols = append(protocols, panel.Protocol{
+			protocols = append(protocols, domain.Protocol{
 				Type:                    item.GetType(),
 				Port:                    int(item.GetPort()),
 				Enable:                  item.GetEnable(),

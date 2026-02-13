@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/perfect-panel/ppanel-node/api/panel"
+	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/xtls/xray-core/app/dns"
 	"github.com/xtls/xray-core/app/router"
 	xnet "github.com/xtls/xray-core/common/net"
@@ -42,7 +42,7 @@ func hasOutboundWithTag(list []*core.OutboundHandlerConfig, tag string) bool {
 	return false
 }
 
-func GetCustomConfig(serverconfig *panel.ServerConfigResponse) (*dns.Config, []*core.OutboundHandlerConfig, *router.Config, error) {
+func GetCustomConfig(serverconfig *domain.ServerConfigResponse) (*dns.Config, []*core.OutboundHandlerConfig, *router.Config, error) {
 	var ip_strategy string
 	if serverconfig.Data.IPStrategy != "" {
 		switch serverconfig.Data.IPStrategy {
