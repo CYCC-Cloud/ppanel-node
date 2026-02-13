@@ -96,7 +96,7 @@ func (c *Controller) Start() error {
 
 // Close implement the Close() function of the service interface
 func (c *Controller) Close() error {
-	limiter.DeleteLimiter(c.tag)
+	// Stop all periodic tasks first to avoid concurrent conflicts with final report
 	if c.userListMonitorPeriodic != nil {
 		c.userListMonitorPeriodic.Close()
 	}
@@ -109,6 +109,14 @@ func (c *Controller) Close() error {
 	if c.onlineIpReportPeriodic != nil {
 		c.onlineIpReportPeriodic.Close()
 	}
+
+	// Final telemetry report before cleanup, ensuring pending traffic is flushed
+	log.WithField("节点", c.tag).Info("节点关闭，正在执行最终 Telemetry 上报...")
+	if err := c.reportUserTrafficTask(); err != nil {
+		log.WithField("节点", c.tag).WithError(err).Warn("最终 Telemetry 上报失败")
+	}
+
+	limiter.DeleteLimiter(c.tag)
 	err := c.server.DelNode(c.tag)
 	if err != nil {
 		return fmt.Errorf("del node error: %s", err)

@@ -30,7 +30,7 @@ func (c *Controller) startTasks(node *domain.NodeInfo) {
 	}
 	_ = c.userListMonitorPeriodic.Start(false)
 	log.WithField("节点", c.tag).Info("用户列表监控任务已启动")
-	_ = c.userReportPeriodic.Start(false)
+	_ = c.userReportPeriodic.Start(true)
 	log.WithField("节点", c.tag).Info("用户流量报告任务已启动")
 	var security string
 	switch node.Type {
