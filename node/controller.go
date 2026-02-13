@@ -26,6 +26,10 @@ type userListClient interface {
 	GetUserList(ctx context.Context, protocol, knownRevision string) (*nodecontrolv1.GetUserListResponse, error)
 }
 
+type telemetryReportClient interface {
+	ReportTelemetry(ctx context.Context, batch *nodecontrolv1.TelemetryBatch) (*nodecontrolv1.ReportTelemetrySummary, error)
+}
+
 type Controller struct {
 	server                  coreServer
 	apiClient               *panel.ClientV1
@@ -39,16 +43,18 @@ type Controller struct {
 	renewCertPeriodic       *task.Task
 	onlineIpReportPeriodic  *task.Task
 	userClient              userListClient
+	telemetryClient         telemetryReportClient
 	knownRevision           string
 }
 
 // NewController return a Node controller with default parameters.
-func NewController(server coreServer, api *panel.ClientV1, userClient userListClient, info *panel.NodeInfo) *Controller {
+func NewController(server coreServer, api *panel.ClientV1, userClient userListClient, telemetryClient telemetryReportClient, info *panel.NodeInfo) *Controller {
 	controller := &Controller{
-		server:     server,
-		apiClient:  api,
-		userClient: userClient,
-		info:       info,
+		server:          server,
+		apiClient:       api,
+		userClient:      userClient,
+		telemetryClient: telemetryClient,
+		info:            info,
 	}
 	return controller
 }

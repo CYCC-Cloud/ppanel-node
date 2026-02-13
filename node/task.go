@@ -1,9 +1,11 @@
 package node
 
 import (
+	"context"
 	"strconv"
 	"time"
 
+	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
 	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/serverstatus"
 	"github.com/perfect-panel/ppanel-node/common/task"
@@ -148,67 +150,113 @@ func (c *Controller) userListMonitor() (err error) {
 	return nil
 }
 
-func (c *Controller) reportUserTrafficTask() (err error) {
+func (c *Controller) reportUserTrafficTask() error {
 	var reportmin = 0
 	if c.info.TrafficReportThreshold > 0 {
 		reportmin = c.info.TrafficReportThreshold
 	}
+
 	userTraffic, _ := c.server.GetUserTrafficSlice(c.tag, reportmin)
-	if len(userTraffic) > 0 {
-		err = c.apiClient.ReportUserTraffic(&userTraffic)
-		if err != nil {
+
+	// Build proto traffic list
+	protoTraffic := make([]*nodecontrolv1.UserTraffic, 0, len(userTraffic))
+	for _, t := range userTraffic {
+		protoTraffic = append(protoTraffic, &nodecontrolv1.UserTraffic{
+			Uid:      int64(t.UID),
+			Upload:   t.Upload,
+			Download: t.Download,
+		})
+	}
+
+	// Build online users — preserve rule: zero-traffic users excluded
+	var protoOnline []*nodecontrolv1.OnlineUser
+	if c.limiter != nil {
+		if onlineDevice, err := c.limiter.GetOnlineDevice(); err == nil && len(*onlineDevice) > 0 {
+			nocountUID := make(map[int]struct{})
+			for _, t := range userTraffic {
+				if t.Upload+t.Download <= 0 {
+					nocountUID[t.UID] = struct{}{}
+				}
+			}
+			for _, online := range *onlineDevice {
+				if _, skip := nocountUID[online.UID]; !skip {
+					protoOnline = append(protoOnline, &nodecontrolv1.OnlineUser{
+						Uid: int64(online.UID),
+						Ip:  online.IP,
+					})
+				}
+			}
+		}
+	}
+
+	// Build node status
+	CPU, Mem, Disk, Uptime, err := serverstatus.GetSystemInfo()
+	if err != nil {
+		log.WithField("tag", c.tag).WithError(err).Warn("GetSystemInfo failed, reporting zero status")
+	}
+
+	protocol := ""
+	if c.info != nil && c.info.Protocol != nil {
+		protocol = c.info.Protocol.Type
+	}
+
+	now := time.Now().UnixMilli()
+	batch := &nodecontrolv1.TelemetryBatch{
+		ServerId:          int64(c.info.Id),
+		Protocol:          protocol,
+		WindowStartUnixMs: now - int64(c.info.PushInterval)*1000,
+		WindowEndUnixMs:   now,
+		Traffic:           protoTraffic,
+		OnlineUsers:       protoOnline,
+		Status: &nodecontrolv1.NodeStatus{
+			Cpu:    CPU,
+			Mem:    Mem,
+			Disk:   Disk,
+			Uptime: Uptime,
+		},
+	}
+
+	if c.telemetryClient != nil {
+		if _, err := c.telemetryClient.ReportTelemetry(context.Background(), batch); err != nil {
 			log.WithFields(log.Fields{
 				"tag": c.tag,
 				"err": err,
-			}).Info("Report user traffic failed")
+			}).Warn("ReportTelemetry failed, will retry next cycle")
+		} else {
+			log.WithField("节点", c.tag).Infof(
+				"已上报 telemetry: %d 流量, %d 在线用户",
+				len(protoTraffic), len(protoOnline),
+			)
+		}
+		return nil
+	}
+
+	// Fallback to HTTP if no gRPC telemetry client configured
+	if len(userTraffic) > 0 {
+		if err := c.apiClient.ReportUserTraffic(&userTraffic); err != nil {
+			log.WithFields(log.Fields{"tag": c.tag, "err": err}).Info("Report user traffic failed")
 		} else {
 			log.WithField("节点", c.tag).Infof("已上报 %d 名用户消耗流量", len(userTraffic))
 		}
 	}
-
-	if onlineDevice, err := c.limiter.GetOnlineDevice(); err != nil {
-		log.Print(err)
-	} else if len(*onlineDevice) > 0 {
-		// Only report user has traffic > 100kb to allow ping test
-		var result []panel.OnlineUser
-		var nocountUID = make(map[int]struct{})
-		for _, traffic := range userTraffic {
-			total := traffic.Upload + traffic.Download
-			if total <= 0 {
-				nocountUID[traffic.UID] = struct{}{}
-			}
+	if len(protoOnline) > 0 {
+		var panelOnline []panel.OnlineUser
+		for _, ou := range protoOnline {
+			panelOnline = append(panelOnline, panel.OnlineUser{UID: int(ou.Uid), IP: ou.Ip})
 		}
-		for _, online := range *onlineDevice {
-			if _, ok := nocountUID[online.UID]; !ok {
-				result = append(result, online)
-			}
-		}
-		if err = c.apiClient.ReportNodeOnlineUsers(&result); err != nil {
-			log.WithFields(log.Fields{
-				"tag": c.tag,
-				"err": err,
-			}).Info("Report online users failed")
-		} else {
-			log.WithField("节点", c.tag).Infof("总计 %d 名在线用户, %d 名已上报", len(*onlineDevice), len(result))
+		if err := c.apiClient.ReportNodeOnlineUsers(&panelOnline); err != nil {
+			log.WithFields(log.Fields{"tag": c.tag, "err": err}).Info("Report online users failed")
 		}
 	}
-
-	CPU, Mem, Disk, Uptime, err := serverstatus.GetSystemInfo()
-	if err != nil {
-		log.Print(err)
-	}
-	err = c.apiClient.ReportNodeStatus(
-		&panel.NodeStatus{
-			CPU:    CPU,
-			Mem:    Mem,
-			Disk:   Disk,
-			Uptime: Uptime,
-		})
-	if err != nil {
+	if err := c.apiClient.ReportNodeStatus(&panel.NodeStatus{
+		CPU:    CPU,
+		Mem:    Mem,
+		Disk:   Disk,
+		Uptime: Uptime,
+	}); err != nil {
 		log.Print(err)
 	}
 
-	userTraffic = nil
 	return nil
 }
 

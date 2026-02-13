@@ -25,9 +25,13 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConf
 		pullinterval = 60
 	}
 	var userClient userListClient
+	var telClient telemetryReportClient
 	if core != nil && core.ConfigClient != nil {
 		if cli, ok := core.ConfigClient.(userListClient); ok {
 			userClient = cli
+		}
+		if cli, ok := core.ConfigClient.(telemetryReportClient); ok {
+			telClient = cli
 		}
 	}
 	for i, nodeconfig := range *serverconfig.Data.Protocols {
@@ -48,7 +52,7 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *panel.ServerConf
 		if err != nil {
 			return nil, err
 		}
-		node.controllers[i] = NewController(core, p, userClient, n)
+		node.controllers[i] = NewController(core, p, userClient, telClient, n)
 	}
 
 	return node, nil
