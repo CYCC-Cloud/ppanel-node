@@ -16,6 +16,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
+require github.com/cespare/xxhash/v2 v2.3.0 // indirect
+
 require (
 	cloud.google.com/go/auth v0.16.5 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect

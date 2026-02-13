@@ -1,9 +1,11 @@
 package core
 
 import (
+	"context"
 	"sync"
 	"time"
 
+	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
 	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/common/task"
 	"github.com/perfect-panel/ppanel-node/conf"
@@ -29,7 +31,7 @@ type AddUsersParams struct {
 
 type XrayCore struct {
 	Config                      *conf.Conf
-	Client                      *panel.ClientV2
+	ConfigClient                ServerConfigClient
 	ReloadCh                    chan struct{}
 	serverConfigMonitorPeriodic *task.Task
 	access                      sync.Mutex
@@ -38,6 +40,13 @@ type XrayCore struct {
 	ihm                         inbound.Manager
 	ohm                         outbound.Manager
 	dispatcher                  *dispatcher.DefaultDispatcher
+	knownConfigRevision         string
+	monitorProtocolTypes        []string
+}
+
+type ServerConfigClient interface {
+	GetConfig(ctx context.Context, knownRevision string, protocols []string) (*nodecontrolv1.GetConfigResponse, error)
+	Close() error
 }
 
 type UserMap struct {
@@ -45,15 +54,19 @@ type UserMap struct {
 	mapLock sync.RWMutex
 }
 
-func New(config *conf.Conf, client *panel.ClientV2) *XrayCore {
+func New(config *conf.Conf, client ServerConfigClient) *XrayCore {
 	core := &XrayCore{
-		Config: config,
-		Client: client,
+		Config:       config,
+		ConfigClient: client,
 		users: &UserMap{
 			uidMap: make(map[string]int),
 		},
 	}
 	return core
+}
+
+func (v *XrayCore) SetKnownConfigRevision(revision string) {
+	v.knownConfigRevision = revision
 }
 
 func (v *XrayCore) Start(serverconfig *panel.ServerConfigResponse) error {
@@ -77,6 +90,10 @@ func (v *XrayCore) Close() error {
 		v.serverConfigMonitorPeriodic.Close()
 	}
 	v.Config = nil
+	if v.ConfigClient != nil {
+		_ = v.ConfigClient.Close()
+		v.ConfigClient = nil
+	}
 	v.ihm = nil
 	v.ohm = nil
 	v.dispatcher = nil
@@ -138,6 +155,12 @@ func getCore(c *conf.Conf, serverconfig *panel.ServerConfigResponse) *core.Insta
 }
 
 func (c *XrayCore) startTasks(serverconfig *panel.ServerConfigResponse) {
+	c.monitorProtocolTypes = c.monitorProtocolTypes[:0]
+	if serverconfig != nil && serverconfig.Data != nil && serverconfig.Data.Protocols != nil {
+		for _, protocol := range *serverconfig.Data.Protocols {
+			c.monitorProtocolTypes = append(c.monitorProtocolTypes, protocol.Type)
+		}
+	}
 	// fetch node info task
 	pullinverval := serverconfig.Data.PullInterval
 	if pullinverval <= 0 {
@@ -151,12 +174,19 @@ func (c *XrayCore) startTasks(serverconfig *panel.ServerConfigResponse) {
 }
 
 func (c *XrayCore) ServerConfigMonitor() (err error) {
-	newServerConfig, err := panel.GetServerConfig(c.Client)
+	if c.ConfigClient == nil {
+		return nil
+	}
+
+	newServerConfig, err := c.ConfigClient.GetConfig(context.Background(), c.knownConfigRevision, c.monitorProtocolTypes)
 	if err != nil {
 		log.WithField("err", err).Error("获取服务端配置失败")
 		return nil
 	}
 	if newServerConfig != nil {
+		if newServerConfig.GetRevision() != "" {
+			c.knownConfigRevision = newServerConfig.GetRevision()
+		}
 		log.Error("检测到服务端配置变更，正在重启节点...")
 		// Non-blocking signal to avoid goroutine stuck when channel is full or nil
 		if c.ReloadCh != nil {

@@ -1,14 +1,18 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
+	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
+	"github.com/perfect-panel/ppanel-node/api/grpcclient"
 	"github.com/perfect-panel/ppanel-node/api/panel"
 	"github.com/perfect-panel/ppanel-node/conf"
 	"github.com/perfect-panel/ppanel-node/core"
@@ -80,17 +84,22 @@ func serverHandle(_ *cobra.Command, _ []string) {
 		}()
 	}
 	limiter.Init()
-	p := panel.NewClientV2(&c.ApiConfig)
-	serverconfig, err := panel.GetServerConfig(p)
+	serverClient, serverconfig, revision, err := loadServerConfigClient(&c.ApiConfig)
 	if err != nil {
 		log.WithField("err", err).Error("获取服务端配置失败")
 		return
 	}
+	if serverconfig == nil || serverconfig.Data == nil {
+		log.Error("服务端配置为空")
+		return
+	}
 	var reloadCh = make(chan struct{}, 1)
-	xraycore := core.New(c, p)
+	xraycore := core.New(c, serverClient)
 	xraycore.ReloadCh = reloadCh
+	xraycore.SetKnownConfigRevision(revision)
 	err = xraycore.Start(serverconfig)
 	if err != nil {
+		_ = xraycore.Close()
 		log.WithField("err", err).Error("启动Xray核心失败")
 		return
 	}
@@ -157,24 +166,31 @@ func reload(config string, nodes **node.Node, xcore **core.XrayCore) error {
 	if err := newConf.LoadFromPath(config); err != nil {
 		return err
 	}
-	p := panel.NewClientV2(&newConf.ApiConfig)
-	serverconfig, err := panel.GetServerConfig(p)
+
+	serverClient, serverconfig, revision, err := loadServerConfigClient(&newConf.ApiConfig)
 	if err != nil {
 		log.WithField("err", err).Error("获取服务端配置失败")
 		return err
 	}
+	if serverconfig == nil || serverconfig.Data == nil {
+		return fmt.Errorf("服务端配置为空")
+	}
 
-	newCore := core.New(newConf, p)
+	newCore := core.New(newConf, serverClient)
 	// Reattach reload channel
 	newCore.ReloadCh = oldReloadCh
+	newCore.SetKnownConfigRevision(revision)
 	if err := newCore.Start(serverconfig); err != nil {
+		_ = newCore.Close()
 		return err
 	}
 	newNodes, err := node.New(newCore, newConf, serverconfig)
 	if err != nil {
+		_ = newCore.Close()
 		return err
 	}
 	if err := newNodes.Start(); err != nil {
+		_ = newCore.Close()
 		return err
 	}
 
@@ -183,4 +199,57 @@ func reload(config string, nodes **node.Node, xcore **core.XrayCore) error {
 	log.Infof("%d 个节点重启成功", serverconfig.Data.Total)
 	runtime.GC()
 	return nil
+}
+
+type httpServerConfigClient struct {
+	client *panel.ClientV2
+}
+
+func (h *httpServerConfigClient) GetConfig(_ context.Context, _ string, _ []string) (*nodecontrolv1.GetConfigResponse, error) {
+	newServerConfig, err := panel.GetServerConfig(h.client)
+	if err != nil {
+		return nil, err
+	}
+	if newServerConfig == nil {
+		return nil, nil
+	}
+	return &nodecontrolv1.GetConfigResponse{Changed: true}, nil
+}
+
+func (h *httpServerConfigClient) Close() error {
+	return nil
+}
+
+func loadServerConfigClient(apiConfig *conf.ServerApiConfig) (core.ServerConfigClient, *panel.ServerConfigResponse, string, error) {
+	if strings.EqualFold(apiConfig.Transport, "http") {
+		httpClient := panel.NewClientV2(apiConfig)
+		serverconfig, err := panel.GetServerConfig(httpClient)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		return &httpServerConfigClient{client: httpClient}, serverconfig, "", nil
+	}
+
+	grpcClient, err := grpcclient.New(apiConfig)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	resp, err := grpcClient.GetConfig(context.Background(), "", nil)
+	if err != nil {
+		_ = grpcClient.Close()
+		return nil, nil, "", err
+	}
+	if resp == nil || resp.GetData() == nil {
+		_ = grpcClient.Close()
+		return nil, nil, "", fmt.Errorf("grpc 返回空配置")
+	}
+
+	serverconfig := grpcclient.AdaptServerConfigResponse(resp)
+	if serverconfig == nil || serverconfig.Data == nil {
+		_ = grpcClient.Close()
+		return nil, nil, "", fmt.Errorf("grpc 配置转换失败")
+	}
+
+	return grpcClient, serverconfig, resp.GetRevision(), nil
 }
