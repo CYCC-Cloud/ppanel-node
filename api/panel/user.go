@@ -1,11 +1,9 @@
 package panel
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
-
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 )
 
 type OnlineUser struct {
@@ -56,33 +54,8 @@ func (c *ClientV1) GetUserList() ([]UserInfo, error) {
 		return nil, fmt.Errorf("访问 %s 失败: %s", path.Join(c.APIHost+p), string(body))
 	}
 	userlist := &UserListBody{}
-	dec := jsontext.NewDecoder(r.RawResponse.Body)
-	for {
-		tok, err := dec.ReadToken()
-		if err != nil {
-			return nil, fmt.Errorf("解码用户列表失败: %w", err)
-		}
-		if tok.Kind() == '"' && tok.String() == "users" {
-			break
-		}
-	}
-	tok, err := dec.ReadToken()
-	if err != nil {
+	if err := json.NewDecoder(r.RawResponse.Body).Decode(userlist); err != nil {
 		return nil, fmt.Errorf("解码用户列表失败: %w", err)
-	}
-	if tok.Kind() != '[' {
-		return nil, fmt.Errorf(`解码用户列表失败: "users"非数组`)
-	}
-	for dec.PeekKind() != ']' {
-		val, err := dec.ReadValue()
-		if err != nil {
-			return nil, fmt.Errorf("解码用户列表失败: 读取用户对象失败: %w", err)
-		}
-		var u UserInfo
-		if err := json.Unmarshal(val, &u); err != nil {
-			return nil, fmt.Errorf("解码用户列表失败: 读取用户对象失败: %w", err)
-		}
-		userlist.Users = append(userlist.Users, u)
 	}
 	c.userEtag = r.Header().Get("ETag")
 	return userlist.Users, nil

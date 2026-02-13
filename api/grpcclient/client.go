@@ -70,9 +70,8 @@ func New(cfg *conf.ServerApiConfig) (*Client, error) {
 	dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(
-		dialCtx,
-		cfg.GRPCAddr,
+	// Build dial options
+	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithPerRPCCredentials(&authMetadataCredentials{
 			secret:                   secret,
@@ -80,6 +79,15 @@ func New(cfg *conf.ServerApiConfig) (*Client, error) {
 			requireTransportSecurity: cfg.GRPCTLS,
 		}),
 		grpc.WithBlock(),
+	}
+
+	// Add debug logging interceptor
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(debugLoggingInterceptor()))
+
+	conn, err := grpc.DialContext(
+		dialCtx,
+		cfg.GRPCAddr,
+		dialOpts...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("dial grpc %s: %w", cfg.GRPCAddr, err)
