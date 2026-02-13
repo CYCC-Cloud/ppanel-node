@@ -5,7 +5,6 @@ go 1.25.6
 require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-acme/lego/v4 v4.25.2
-	github.com/go-resty/resty/v2 v2.16.5
 	github.com/juju/ratelimit v1.0.2
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sirupsen/logrus v1.9.3
@@ -16,7 +15,10 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require github.com/cespare/xxhash/v2 v2.3.0 // indirect
+require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/go-resty/resty/v2 v2.16.5 // indirect
+)
 
 require (
 	cloud.google.com/go/auth v0.16.5 // indirect
