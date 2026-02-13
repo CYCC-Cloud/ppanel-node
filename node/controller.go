@@ -2,7 +2,6 @@ package node
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
@@ -64,9 +63,6 @@ func (c *Controller) Start() error {
 	c.userList, err = c.fetchUserList()
 	if err != nil {
 		return fmt.Errorf("get user list error: %s", err)
-	}
-	if len(c.userList) == 0 {
-		return errors.New("add users error: not have any user")
 	}
 	c.tag = c.buildNodeTag(c.info)
 

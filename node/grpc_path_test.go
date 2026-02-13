@@ -50,6 +50,41 @@ func TestNoHTTPControlPlaneCallsInRuntimePath(t *testing.T) {
 	c.Close()
 }
 
+// TestStart_AllowsEmptyInitialUserList verifies that protocol startup does not
+// fail when control-plane currently has zero users for that protocol.
+func TestStart_AllowsEmptyInitialUserList(t *testing.T) {
+	limiter.Init()
+
+	userClient := &fakeUserListClient{
+		response: &nodecontrolv1.GetUserListResponse{
+			Changed:  true,
+			Revision: "rev-empty",
+			Users:    nil,
+		},
+	}
+	telClient := &fakeTelemetryClient{}
+	srv := &fakeCoreServer{}
+
+	nodeInfo := &domain.NodeInfo{
+		Id:           2,
+		Type:         "hysteria",
+		PushInterval: 60,
+		PullInterval: 60,
+		Protocol: &domain.Protocol{
+			Type: "hysteria",
+		},
+	}
+
+	c := NewController(srv, "grpc-host:50051", userClient, telClient, nodeInfo)
+
+	err := c.Start()
+	require.NoError(t, err, "Start() should allow empty initial user list")
+	require.Len(t, srv.added, 1)
+	require.Len(t, srv.added[0].Users, 0)
+
+	c.Close()
+}
+
 // fakeCoreServerForGRPCPath satisfies coreServer without xray machinery.
 var _ coreServer = (*fakeCoreServerForGRPCPath)(nil)
 
