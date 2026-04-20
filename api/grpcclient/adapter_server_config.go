@@ -59,6 +59,8 @@ func AdaptServerConfigResponse(resp *nodecontrolv1.GetConfigResponse) *domain.Se
 		protocols := make([]domain.Protocol, 0, len(data.GetProtocols()))
 		for _, item := range data.GetProtocols() {
 			protocols = append(protocols, domain.Protocol{
+				ListenerKey:             item.GetListenerKey(),
+				ListenerName:            item.GetListenerName(),
 				Type:                    item.GetType(),
 				Port:                    int(item.GetPort()),
 				Enable:                  item.GetEnable(),

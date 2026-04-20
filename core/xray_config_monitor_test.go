@@ -12,12 +12,16 @@ type mockServerConfigClient struct {
 	resp            *nodecontrolv1.GetConfigResponse
 	err             error
 	knownRevisionIn string
-	protocolsIn     []string
+	listenerKeysIn  []string
 }
 
-func (m *mockServerConfigClient) GetConfig(_ context.Context, knownRevision string, protocols []string) (*nodecontrolv1.GetConfigResponse, error) {
+func (m *mockServerConfigClient) GetConfig(_ context.Context, knownRevision string, listenerKeys []string) (*nodecontrolv1.GetConfigResponse, error) {
 	m.knownRevisionIn = knownRevision
-	m.protocolsIn = append([]string{}, protocols...)
+	if listenerKeys == nil {
+		m.listenerKeysIn = nil
+	} else {
+		m.listenerKeysIn = append([]string{}, listenerKeys...)
+	}
 	return m.resp, m.err
 }
 
@@ -36,16 +40,16 @@ func TestServerConfigMonitor_ChangedTriggersReload(t *testing.T) {
 	}
 
 	x := &XrayCore{
-		ConfigClient:         client,
-		ReloadCh:             reloadCh,
-		knownConfigRevision:  "rev-1",
-		monitorProtocolTypes: []string{"vless"},
+		ConfigClient:        client,
+		ReloadCh:            reloadCh,
+		knownConfigRevision: "rev-1",
+		monitorListenerKeys: []string{"listener-edge-1"},
 	}
 
 	err := x.ServerConfigMonitor()
 	require.NoError(t, err)
 	require.Equal(t, "rev-1", client.knownRevisionIn)
-	require.Equal(t, []string{"vless"}, client.protocolsIn)
+	require.Nil(t, client.listenerKeysIn)
 	require.Equal(t, "rev-2", x.knownConfigRevision)
 
 	select {
@@ -60,14 +64,15 @@ func TestServerConfigMonitor_UnchangedNoReload(t *testing.T) {
 	client := &mockServerConfigClient{resp: nil}
 
 	x := &XrayCore{
-		ConfigClient:         client,
-		ReloadCh:             reloadCh,
-		knownConfigRevision:  "rev-1",
-		monitorProtocolTypes: []string{"vless"},
+		ConfigClient:        client,
+		ReloadCh:            reloadCh,
+		knownConfigRevision: "rev-1",
+		monitorListenerKeys: []string{"listener-edge-1"},
 	}
 
 	err := x.ServerConfigMonitor()
 	require.NoError(t, err)
+	require.Nil(t, client.listenerKeysIn)
 	require.Equal(t, "rev-1", x.knownConfigRevision)
 
 	select {

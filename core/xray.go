@@ -41,11 +41,11 @@ type XrayCore struct {
 	ohm                         outbound.Manager
 	dispatcher                  *dispatcher.DefaultDispatcher
 	knownConfigRevision         string
-	monitorProtocolTypes        []string
+	monitorListenerKeys         []string
 }
 
 type ServerConfigClient interface {
-	GetConfig(ctx context.Context, knownRevision string, protocols []string) (*nodecontrolv1.GetConfigResponse, error)
+	GetConfig(ctx context.Context, knownRevision string, listenerKeys []string) (*nodecontrolv1.GetConfigResponse, error)
 	Close() error
 }
 
@@ -155,10 +155,10 @@ func getCore(c *conf.Conf, serverconfig *domain.ServerConfigResponse) *core.Inst
 }
 
 func (c *XrayCore) startTasks(serverconfig *domain.ServerConfigResponse) {
-	c.monitorProtocolTypes = c.monitorProtocolTypes[:0]
+	c.monitorListenerKeys = c.monitorListenerKeys[:0]
 	if serverconfig != nil && serverconfig.Data != nil && serverconfig.Data.Protocols != nil {
 		for _, protocol := range *serverconfig.Data.Protocols {
-			c.monitorProtocolTypes = append(c.monitorProtocolTypes, protocol.Type)
+			c.monitorListenerKeys = append(c.monitorListenerKeys, protocol.ListenerKey)
 		}
 	}
 	// fetch node info task
@@ -178,7 +178,7 @@ func (c *XrayCore) ServerConfigMonitor() (err error) {
 		return nil
 	}
 
-	newServerConfig, err := c.ConfigClient.GetConfig(context.Background(), c.knownConfigRevision, c.monitorProtocolTypes)
+	newServerConfig, err := c.ConfigClient.GetConfig(context.Background(), c.knownConfigRevision, nil)
 	if err != nil {
 		log.WithField("err", err).Error("获取服务端配置失败")
 		return nil

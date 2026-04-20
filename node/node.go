@@ -55,10 +55,9 @@ func (n *Node) Start() error {
 	for i := range n.controllers {
 		err := n.controllers[i].Start()
 		if err != nil {
-			return fmt.Errorf("启动节点 [%s-%s-%d] 失败: %s",
+			return fmt.Errorf("启动节点 [%s-%s] 失败: %s",
 				n.controllers[i].apiHost,
-				n.controllers[i].info.Type,
-				n.controllers[i].info.Id,
+				n.controllers[i].info.Protocol.ListenerKey,
 				err)
 		}
 	}

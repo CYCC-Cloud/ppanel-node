@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/perfect-panel/ppanel-node/common/file"
@@ -32,8 +30,7 @@ func (c *Controller) renewCertTask() error {
 }
 
 func (c *Controller) requestCert() error {
-	certFile := filepath.Join("/etc/PPanel-node/", c.info.Type+strconv.Itoa(c.info.Id)+".cer")
-	keyFile := filepath.Join("/etc/PPanel-node/", c.info.Type+strconv.Itoa(c.info.Id)+".key")
+	certFile, keyFile := certFilePaths(c.info)
 	switch c.info.Protocol.CertMode {
 	case "none", "", "file":
 	case "dns", "http":

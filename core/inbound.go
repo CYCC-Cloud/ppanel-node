@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -98,11 +97,12 @@ func buildInbound(nodeInfo *domain.NodeInfo, tag string) (*core.InboundHandlerCo
 				in.StreamSetting = &coreConf.StreamConfig{}
 			}
 			in.StreamSetting.Security = "tls"
+			certFile, keyFile := tlsCertFilePaths(nodeInfo)
 			in.StreamSetting.TLSSettings = &coreConf.TLSConfig{
 				Certs: []*coreConf.TLSCertConfig{
 					{
-						CertFile: filepath.Join("/etc/PPanel-node/", nodeInfo.Type+strconv.Itoa(nodeInfo.Id)+".cer"),
-						KeyFile:  filepath.Join("/etc/PPanel-node/", nodeInfo.Type+strconv.Itoa(nodeInfo.Id)+".key"),
+						CertFile: certFile,
+						KeyFile:  keyFile,
 					},
 				},
 			}
@@ -138,6 +138,11 @@ func buildInbound(nodeInfo *domain.NodeInfo, tag string) (*core.InboundHandlerCo
 	}
 	in.Tag = tag
 	return in.Build()
+}
+
+func tlsCertFilePaths(nodeInfo *domain.NodeInfo) (string, string) {
+	base := filepath.Join("/etc/PPanel-node/", nodeInfo.Protocol.ListenerKey)
+	return base + ".cer", base + ".key"
 }
 
 func buildVLess(nodeInfo *domain.NodeInfo, inbound *coreConf.InboundDetourConfig) error {

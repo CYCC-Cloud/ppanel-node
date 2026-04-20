@@ -36,6 +36,8 @@ type Outbound struct {
 }
 
 type Protocol struct {
+	ListenerKey             string `json:"listener_key"`
+	ListenerName            string `json:"listener_name"`
 	Type                    string `json:"type"`
 	Port                    int    `json:"port"`
 	Enable                  bool   `json:"enable"`

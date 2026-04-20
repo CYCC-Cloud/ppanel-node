@@ -22,7 +22,7 @@ type coreServer interface {
 }
 
 type userListClient interface {
-	GetUserList(ctx context.Context, protocol, knownRevision string) (*nodecontrolv1.GetUserListResponse, error)
+	GetUserList(ctx context.Context, listenerKey, knownRevision string) (*nodecontrolv1.GetUserListResponse, error)
 }
 
 type telemetryReportClient interface {
@@ -125,12 +125,12 @@ func (c *Controller) Close() error {
 }
 
 func (c *Controller) buildNodeTag(node *domain.NodeInfo) string {
-	return fmt.Sprintf("[%s]-%s:%d", c.apiHost, node.Type, node.Id)
+	return fmt.Sprintf("[%s]-%s", c.apiHost, node.Protocol.ListenerKey)
 }
 
 func (c *Controller) fetchUserList() ([]domain.UserInfo, error) {
 	if c.userClient != nil && c.info != nil && c.info.Protocol != nil {
-		resp, err := c.userClient.GetUserList(context.Background(), c.info.Protocol.Type, c.knownRevision)
+		resp, err := c.userClient.GetUserList(context.Background(), c.info.Protocol.ListenerKey, c.knownRevision)
 		if err != nil {
 			return nil, err
 		}

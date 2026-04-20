@@ -36,7 +36,7 @@ type fakeUserListClient struct {
 	calls    int
 }
 
-func (f *fakeUserListClient) GetUserList(ctx context.Context, protocol, knownRevision string) (*nodecontrolv1.GetUserListResponse, error) {
+func (f *fakeUserListClient) GetUserList(ctx context.Context, listenerKey, knownRevision string) (*nodecontrolv1.GetUserListResponse, error) {
 	f.calls++
 	return f.response, f.err
 }
@@ -53,7 +53,8 @@ func newTestController(t *testing.T, initial []domain.UserInfo, userClient userL
 		info: &domain.NodeInfo{
 			Id: 1,
 			Protocol: &domain.Protocol{
-				Type: "vmess",
+				Type:        "vmess",
+				ListenerKey: "listener-edge-1",
 			},
 		},
 		userList: initial,

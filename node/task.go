@@ -190,6 +190,7 @@ func (c *Controller) reportUserTrafficTask() error {
 	now := time.Now().UnixMilli()
 	batch := &nodecontrolv1.TelemetryBatch{
 		ServerId:          int64(c.info.Id),
+		ListenerKey:       c.info.Protocol.ListenerKey,
 		Protocol:          protocol,
 		WindowStartUnixMs: now - int64(c.info.PushInterval)*1000,
 		WindowEndUnixMs:   now,

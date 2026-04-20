@@ -21,10 +21,10 @@ func TestMarshalToJSON(t *testing.T) {
 		{
 			name: "protobuf message",
 			input: &nodecontrolv1.GetConfigRequest{
-				ServerId:  1,
-				Protocols: []string{"trojan"},
+				ServerId:     1,
+				ListenerKeys: []string{"listener-edge-1"},
 			},
-			want: `{"server_id":"1","protocols":["trojan"]}`,
+			want: `{"server_id":"1","listener_keys":["listener-edge-1"]}`,
 		},
 	}
 

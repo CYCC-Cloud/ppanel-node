@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,8 +21,8 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/perfect-panel/ppanel-node/domain"
 	"github.com/perfect-panel/ppanel-node/common/file"
+	"github.com/perfect-panel/ppanel-node/domain"
 )
 
 type Lego struct {
@@ -33,7 +31,7 @@ type Lego struct {
 }
 
 func NewLego(info *domain.NodeInfo) (*Lego, error) {
-	certFile := filepath.Join("/etc/PPanel-node/", info.Type+strconv.Itoa(info.Id)+".cer")
+	certFile, _ := certFilePaths(info)
 	//keyFile := filepath.Join("/etc/PPanel-node/", info.Type+strconv.Itoa(info.Id)+".key")
 	user, err := NewLegoUser(path.Join(path.Dir(certFile),
 		"user",
@@ -118,7 +116,7 @@ func (l *Lego) CreateCert() (err error) {
 }
 
 func (l *Lego) RenewCert() error {
-	certFile := filepath.Join("/etc/PPanel-node/", l.info.Type+strconv.Itoa(l.info.Id)+".cer")
+	certFile, _ := certFilePaths(l.info)
 	//keyFile := filepath.Join("/etc/PPanel-node/", info.Type+strconv.Itoa(info.Id)+".key")
 	file, err := os.ReadFile(certFile)
 	if err != nil {
@@ -156,8 +154,7 @@ func (l *Lego) CheckCert(file []byte) (bool, error) {
 }
 
 func (l *Lego) writeCert(certificates *certificate.Resource) error {
-	certFile := filepath.Join("/etc/PPanel-node/", l.info.Type+strconv.Itoa(l.info.Id)+".cer")
-	keyFile := filepath.Join("/etc/PPanel-node/", l.info.Type+strconv.Itoa(l.info.Id)+".key")
+	certFile, keyFile := certFilePaths(l.info)
 	err := checkPath(certFile)
 	if err != nil {
 		return fmt.Errorf("check path error: %s", err)
@@ -175,6 +172,11 @@ func (l *Lego) writeCert(certificates *certificate.Resource) error {
 		return err
 	}
 	return nil
+}
+
+func certFilePaths(info *domain.NodeInfo) (string, string) {
+	base := path.Join("/etc/PPanel-node/", info.Protocol.ListenerKey)
+	return base + ".cer", base + ".key"
 }
 
 type User struct {

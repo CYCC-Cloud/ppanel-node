@@ -7,7 +7,7 @@ import (
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
 )
 
-func (c *Client) GetConfig(ctx context.Context, knownRevision string, protocols []string) (*nodecontrolv1.GetConfigResponse, error) {
+func (c *Client) GetConfig(ctx context.Context, knownRevision string, listenerKeys []string) (*nodecontrolv1.GetConfigResponse, error) {
 	if c == nil || c.nodeControl == nil {
 		return nil, errors.New("grpc client is not initialized")
 	}
@@ -17,7 +17,7 @@ func (c *Client) GetConfig(ctx context.Context, knownRevision string, protocols 
 
 	resp, err := c.nodeControl.GetConfig(rpcCtx, &nodecontrolv1.GetConfigRequest{
 		ServerId:      c.serverID,
-		Protocols:     protocols,
+		ListenerKeys:  listenerKeys,
 		KnownRevision: knownRevision,
 	})
 	if err != nil {
@@ -29,7 +29,7 @@ func (c *Client) GetConfig(ctx context.Context, knownRevision string, protocols 
 	return resp, nil
 }
 
-func (c *Client) GetUserList(ctx context.Context, protocol, knownRevision string) (*nodecontrolv1.GetUserListResponse, error) {
+func (c *Client) GetUserList(ctx context.Context, listenerKey, knownRevision string) (*nodecontrolv1.GetUserListResponse, error) {
 	if c == nil || c.nodeControl == nil {
 		return nil, errors.New("grpc client is not initialized")
 	}
@@ -39,7 +39,7 @@ func (c *Client) GetUserList(ctx context.Context, protocol, knownRevision string
 
 	resp, err := c.nodeControl.GetUserList(rpcCtx, &nodecontrolv1.GetUserListRequest{
 		ServerId:      c.serverID,
-		Protocol:      protocol,
+		ListenerKey:   listenerKey,
 		KnownRevision: knownRevision,
 	})
 	if err != nil {

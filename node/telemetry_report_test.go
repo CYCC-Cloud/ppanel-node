@@ -47,7 +47,8 @@ func newControllerForTelemetryTest(srv coreServer, telClient telemetryReportClie
 		Id:   42,
 		Type: "vmess",
 		Protocol: &domain.Protocol{
-			Type: "vmess",
+			ListenerKey: "listener-edge-1",
+			Type:        "vmess",
 		},
 	}
 	return &Controller{
@@ -75,6 +76,7 @@ func TestReportUserTrafficTask_BuildsTelemetryBatch(t *testing.T) {
 	require.Len(t, fake.sent, 1, "expected exactly one TelemetryBatch")
 	batch := fake.sent[0]
 	assert.Equal(t, int64(42), batch.GetServerId())
+	assert.Equal(t, "listener-edge-1", batch.GetListenerKey())
 	assert.Equal(t, "vmess", batch.GetProtocol())
 	require.Len(t, batch.GetTraffic(), 2)
 	assert.Equal(t, int64(1), batch.GetTraffic()[0].GetUid())
