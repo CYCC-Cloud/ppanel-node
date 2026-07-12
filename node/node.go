@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/perfect-panel/ppanel-node/conf"
@@ -52,24 +53,37 @@ func New(core *vCore.XrayCore, config *conf.Conf, serverconfig *domain.ServerCon
 }
 
 func (n *Node) Start() error {
-	for i := range n.controllers {
-		err := n.controllers[i].Start()
-		if err != nil {
-			return fmt.Errorf("启动节点 [%s-%s] 失败: %s",
-				n.controllers[i].apiHost,
-				n.controllers[i].info.Protocol.ListenerKey,
-				err)
+	for i, controller := range n.controllers {
+		if err := controller.Start(); err != nil {
+			rollbackErr := closeControllers(n.controllers[:i+1])
+			return errors.Join(
+				fmt.Errorf("start node [%s-%s]: %w",
+					controller.apiHost,
+					controller.info.Protocol.ListenerKey,
+					err,
+				),
+				rollbackErr,
+			)
 		}
 	}
 	return nil
 }
 
-func (n *Node) Close() {
-	for _, c := range n.controllers {
-		err := c.Close()
-		if err != nil {
-			panic(err)
+func (n *Node) Close() error {
+	if n == nil {
+		return nil
+	}
+	err := closeControllers(n.controllers)
+	n.controllers = nil
+	return err
+}
+
+func closeControllers(controllers []*Controller) error {
+	var err error
+	for i := len(controllers) - 1; i >= 0; i-- {
+		if controllers[i] != nil {
+			err = errors.Join(err, controllers[i].Close())
 		}
 	}
-	n.controllers = nil
+	return err
 }

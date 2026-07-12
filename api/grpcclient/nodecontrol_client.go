@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	nodecontrolv1 "github.com/CYCC-Cloud/ppanel-proto/gen/go/ppanel/nodecontrol/v1"
+	"google.golang.org/grpc"
 )
 
 func (c *Client) GetConfig(ctx context.Context, knownRevision string, listenerKeys []string) (*nodecontrolv1.GetConfigResponse, error) {
@@ -27,6 +28,16 @@ func (c *Client) GetConfig(ctx context.Context, knownRevision string, listenerKe
 		return nil, nil
 	}
 	return resp, nil
+}
+
+func (c *Client) WatchControl(ctx context.Context, req *nodecontrolv1.WatchControlRequest) (grpc.ServerStreamingClient[nodecontrolv1.ControlEvent], error) {
+	if c == nil || c.nodeControl == nil {
+		return nil, errors.New("grpc client is not initialized")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return c.nodeControl.WatchControl(ctx, req)
 }
 
 func (c *Client) GetUserList(ctx context.Context, listenerKey, knownRevision string) (*nodecontrolv1.GetUserListResponse, error) {

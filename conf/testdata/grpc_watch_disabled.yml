@@ -1,0 +1,5 @@
+Api:
+  ServerID: 1
+  GRPCAddr: "127.0.0.1:50051"
+  GRPCSecret: "node-secret"
+  GRPCWatchControl: false

@@ -28,6 +28,7 @@ type ServerApiConfig struct {
 	GRPCInsecureSkipVerify bool   `mapstructure:"GRPCInsecureSkipVerify"`
 	GRPCDialTimeout        int    `mapstructure:"GRPCDialTimeout"`
 	GRPCRPCTimeout         int    `mapstructure:"GRPCRPCTimeout"`
+	GRPCWatchControl       bool   `mapstructure:"GRPCWatchControl"`
 }
 
 type NodeApiConfig struct {
@@ -44,6 +45,9 @@ func New() *Conf {
 			Level:  "info",
 			Output: "",
 			Access: "none",
+		},
+		ApiConfig: ServerApiConfig{
+			GRPCWatchControl: true,
 		},
 	}
 }

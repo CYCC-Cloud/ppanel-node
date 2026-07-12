@@ -33,6 +33,8 @@ type Controller struct {
 	server                  coreServer
 	apiHost                 string
 	tag                     string
+	nodeAdded               bool
+	started                 bool
 	limiter                 *limiter.Limiter
 	userList                []domain.UserInfo
 	info                    *domain.NodeInfo
@@ -81,6 +83,7 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return fmt.Errorf("add new node error: %s", err)
 	}
+	c.nodeAdded = true
 	added, err := c.server.AddUsers(&vCore.AddUsersParams{
 		Tag:      c.tag,
 		Users:    c.userList,
@@ -91,35 +94,49 @@ func (c *Controller) Start() error {
 	}
 	log.WithField("节点", c.tag).Infof("已添加 %d 个新用户", added)
 	c.startTasks(c.info)
+	c.started = true
 	return nil
 }
 
 // Close implement the Close() function of the service interface
 func (c *Controller) Close() error {
-	// Stop all periodic tasks first to avoid concurrent conflicts with final report
+	if c == nil {
+		return nil
+	}
 	if c.userListMonitorPeriodic != nil {
 		c.userListMonitorPeriodic.Close()
+		c.userListMonitorPeriodic = nil
 	}
 	if c.userReportPeriodic != nil {
 		c.userReportPeriodic.Close()
+		c.userReportPeriodic = nil
 	}
 	if c.renewCertPeriodic != nil {
 		c.renewCertPeriodic.Close()
+		c.renewCertPeriodic = nil
 	}
 	if c.onlineIpReportPeriodic != nil {
 		c.onlineIpReportPeriodic.Close()
+		c.onlineIpReportPeriodic = nil
 	}
 
-	// Final telemetry report before cleanup, ensuring pending traffic is flushed
-	log.WithField("节点", c.tag).Info("节点关闭，正在执行最终 Telemetry 上报...")
-	if err := c.reportUserTrafficTask(); err != nil {
-		log.WithField("节点", c.tag).WithError(err).Warn("最终 Telemetry 上报失败")
+	if c.started {
+		log.WithField("node", c.tag).Info("Node closing; sending final telemetry report")
+		if err := c.reportUserTrafficTask(); err != nil {
+			log.WithField("node", c.tag).WithError(err).Warn("Final telemetry report failed")
+		}
+		c.started = false
 	}
-
-	limiter.DeleteLimiter(c.tag)
-	err := c.server.DelNode(c.tag)
-	if err != nil {
-		return fmt.Errorf("del node error: %s", err)
+	if c.limiter != nil {
+		limiter.DeleteLimiter(c.tag)
+		c.limiter = nil
+	}
+	if !c.nodeAdded {
+		return nil
+	}
+	c.nodeAdded = false
+	if err := c.server.DelNode(c.tag); err != nil {
+		return fmt.Errorf("delete node: %w", err)
 	}
 	return nil
 }
